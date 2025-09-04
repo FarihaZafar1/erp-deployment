@@ -1,0 +1,262 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+        
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique  // Add this field for Clerk integration
+  email     String   @unique
+  name      String
+  role      Role     @default(EMPLOYEE)
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  employeeProfile Employee?
+  attendance      Attendance[]
+  payroll         Payroll[]
+  
+  // Add missing opposite relation fields
+  managedDepartments Department[] @relation("DepartmentManager")
+  notifications      Notification[]
+  sentMessages       Message[]
+  
+  @@map("users")
+}
+
+model Employee {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  employeeId   String   @unique
+  firstName    String
+  lastName     String
+  email        String   @unique
+  phone        String?
+  address      String?
+  position     String
+  departmentId String?  // Changed from department String to departmentId String?
+  salary       Float
+  hireDate     DateTime
+  status       EmployeeStatus @default(ACTIVE)
+  avatar       String?
+  emergencyContact String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id])  // Added proper relation
+  
+  @@map("employees")
+}
+
+model Department {
+  id              String           @id @default(cuid())
+  name            String           @unique
+  description     String?
+  managerId       String?
+  managerEmail    String?          // Added for frontend compatibility
+  budget          Float?
+  location        String?
+  status          DepartmentStatus @default(ACTIVE)  // Added status field
+  establishedDate DateTime?        // Added established date
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  manager    User?       @relation("DepartmentManager", fields: [managerId], references: [id])
+  employees  Employee[]  // Added employees relation
+  tasks      Task[]
+  
+  @@map("departments")
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  title        String
+  description  String?
+  status       TaskStatus @default(PENDING)
+  priority     Priority   @default(MEDIUM)
+  assignedTo   String?
+  departmentId String
+  dueDate      DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  department Department @relation(fields: [departmentId], references: [id])
+  
+  @@map("tasks")
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime
+  checkIn   DateTime?
+  checkOut  DateTime?
+  status    AttendanceStatus @default(PRESENT)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, date])
+  @@map("attendance")
+}
+
+model Payroll {
+  id          String   @id @default(cuid())
+  userId      String
+  month       Int
+  year        Int
+  basicSalary Float
+  allowances  Float    @default(0)
+  deductions  Float    @default(0)
+  netSalary   Float
+  status      PayrollStatus @default(PENDING)
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, month, year])
+  @@map("payroll")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id])
+  
+  @@map("notifications")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  senderId  String
+  receiverId String?
+  subject   String
+  content   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  sender User @relation(fields: [senderId], references: [id])
+  
+  @@map("messages")
+}
+
+model Report {
+  id          String     @id @default(cuid())
+  name        String
+  type        ReportType
+  generatedBy String
+  data        Json
+  status      ReportStatus @default(COMPLETED)
+  size        String?
+  downloads   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  
+  @@map("reports")
+}
+
+model FinanceRecord {
+  id          String      @id @default(cuid())
+  type        FinanceType
+  amount      Float
+  description String
+  category    String
+  date        DateTime
+  status      String      @default("completed")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@map("finance_records")
+}
+
+enum Role {
+  ADMIN
+  HR
+  MANAGER
+  EMPLOYEE
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+enum DepartmentStatus {  // Added new enum
+  ACTIVE
+  EXPANDING
+  RESTRUCTURING
+  INACTIVE
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+}
+
+enum PayrollStatus {
+  PENDING
+  APPROVED
+  PAID
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+}
+
+enum ReportType {
+  FINANCIAL
+  HR
+  OPERATIONAL
+}
+
+enum ReportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum FinanceType {
+  INCOME
+  EXPENSE
+  INVESTMENT
+  LOAN
+}
